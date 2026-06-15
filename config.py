@@ -12,6 +12,7 @@ load_dotenv(BASE_DIR / ".env", encoding="utf-8-sig")
 
 DEFAULT_JWT_SECRET = "excelai-local-dev-secret-change-me"
 PLACEHOLDER_JWT_SECRETS = {DEFAULT_JWT_SECRET, "change_this_to_a_long_random_secret", "changeme", "secret"}
+PRODUCTION_FRONTEND_ORIGIN = "https://matdanhk2-zeta.vercel.app"
 
 
 @dataclass(frozen=True)
@@ -95,6 +96,8 @@ class Settings:
     @property
     def cors_origins(self) -> List[str]:
         defaults = {self.frontend_url}
+        if self.environment.lower() == "production":
+            defaults.add(PRODUCTION_FRONTEND_ORIGIN)
         if self.environment.lower() != "production":
             defaults |= {
                 "http://localhost:3000",
@@ -130,8 +133,6 @@ class Settings:
             missing.append("DATABASE_URL")
         if not self.jwt_secret or self.jwt_secret.strip().lower() in PLACEHOLDER_JWT_SECRETS or len(self.jwt_secret) < 32:
             raise RuntimeError("JWT_SECRET must be set to a strong non-default value (32+ chars).")
-        if self.environment.lower() == "production" and not self.cors_extra_origins:
-            raise RuntimeError("CORS_ORIGINS must be explicitly set in production.")
         if not self.gemini_api_key:
             missing.append("GEMINI_API_KEY")
         elif not self.gemini_api_key.startswith("AIzaSy"):
