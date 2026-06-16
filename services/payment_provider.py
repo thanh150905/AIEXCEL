@@ -113,10 +113,20 @@ class PayosProvider(PaymentProvider):
                 headers={"x-client-id": settings.payos_client_id, "x-api-key": settings.payos_api_key, "Content-Type": "application/json"},
                 json=payload,
             )
+        try:
+            body = res.json()
+        except Exception:
+            body = {"raw": res.text[:500]}
         if res.status_code >= 400:
+            print(f"PayOS checkout failed status={res.status_code} body={body}")
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Không thể tạo checkout PayOS.")
-        data = res.json().get("data") or res.json()
-        return {"checkoutUrl": data.get("checkoutUrl"), "qrCode": data.get("qrCode"), "providerOrderId": str(data.get("paymentLinkId") or order_code)}
+        data = body.get("data") if isinstance(body.get("data"), dict) else body
+        checkout_url = data.get("checkoutUrl") or data.get("checkout_url") or data.get("paymentUrl") or data.get("payment_url")
+        qr_code = data.get("qrCode") or data.get("qr_code") or data.get("qrCodeUrl") or data.get("qr_code_url")
+        if not checkout_url and not qr_code:
+            print(f"PayOS checkout missing payment URL/QR body={body}")
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="PayOS đã tạo phản hồi nhưng không trả checkout URL hoặc QR.")
+        return {"checkoutUrl": checkout_url, "qrCode": qr_code, "providerOrderId": str(data.get("paymentLinkId") or order_code)}
 
     def verify_webhook_signature(self, raw_body: bytes, signature: str | None, headers: dict[str, str] | None = None) -> bool:
         try:
