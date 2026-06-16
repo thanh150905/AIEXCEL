@@ -130,6 +130,29 @@ class PayosProvider(PaymentProvider):
         sign_data = "&".join(f"{key}={data[key]}" for key in sorted(data.keys()) if key != "signature")
         return hmac.compare_digest(_hmac_sha256(settings.payos_checksum_key, sign_data), received)
 
+    def parse_webhook_event(self, raw_body: bytes) -> PaymentEvent:
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+        except Exception as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook PayOS không hợp lệ.") from exc
+        data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+        if not data:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook PayOS thiếu data.")
+        order_code = str(data.get("orderCode") or "")
+        event_id = str(data.get("reference") or data.get("paymentLinkId") or payload.get("id") or order_code)
+        success = payload.get("success") is True or str(data.get("code") or payload.get("code") or "") == "00"
+        status_value = "PAID" if success else str(data.get("desc") or payload.get("desc") or data.get("code") or "")
+        return PaymentEvent(
+            provider_event_id=event_id,
+            event_type=str(data.get("code") or payload.get("code") or "payos_webhook"),
+            status=status_value,
+            order_id="",
+            order_code=order_code,
+            amount=int(data.get("amount") or 0),
+            currency=str(data.get("currency") or "VND"),
+            raw=payload,
+        )
+
 
 class VnpayProvider(PaymentProvider):
     name = "vnpay"
