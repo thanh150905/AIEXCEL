@@ -341,7 +341,7 @@ async def _checkout_response(payload: dict, current_user: dict, db) -> dict:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Giá gói chưa được cấu hình.")
     now = datetime.now(timezone.utc)
     order_id = str(uuid4())
-    order_code = f"{int(now.timestamp() * 1000)}{secrets.randbelow(1_000_000):06d}"[-18:]
+    order_code = f"{int(now.timestamp())}{secrets.randbelow(1_000):03d}"[-12:]
     order = {
         "id": order_id,
         "user_id": current_user["id"],

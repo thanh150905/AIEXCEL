@@ -120,6 +120,11 @@ class PayosProvider(PaymentProvider):
         if res.status_code >= 400:
             print(f"PayOS checkout failed status={res.status_code} body={body}")
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Không thể tạo checkout PayOS.")
+        payos_code = str(body.get("code") or "")
+        if payos_code and payos_code != "00":
+            payos_desc = body.get("desc") or body.get("message") or "PayOS từ chối tạo checkout."
+            print(f"PayOS checkout rejected code={payos_code} desc={payos_desc} body={body}")
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"PayOS từ chối tạo checkout: {payos_desc}")
         data = body.get("data") if isinstance(body.get("data"), dict) else body
         checkout_url = data.get("checkoutUrl") or data.get("checkout_url") or data.get("paymentUrl") or data.get("payment_url")
         qr_code = data.get("qrCode") or data.get("qr_code") or data.get("qrCodeUrl") or data.get("qr_code_url")
